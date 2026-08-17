@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#020409">
+<title>Five Nights at Chompy's</title>
+<style>
+  :root {
+    --green: #7fdf9f; --green-dim: #3d7a55; --bg: #020409;
+    --gold: #ffd25e; --silver: #cdd6e0; --bronze: #d29a6a; --red: #ff5148;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; background: var(--bg); overscroll-behavior: none; }
+  body {
+    font-family: 'Courier New', ui-monospace, monospace;
+    color: var(--green); user-select: none; -webkit-user-select: none;
+    position: fixed; inset: 0;
+  }
+  #game, #game canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+
+  /* ---------- overlays base ---------- */
+  .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; z-index: 10; }
+  .dim { opacity: 0.65; }
+
+  /* ---------- title ---------- */
+  #title {
+    padding: max(10px, env(safe-area-inset-top)) 14px max(10px, env(safe-area-inset-bottom));
+    background: radial-gradient(ellipse at 50% 30%, rgba(4,12,8,0.72), rgba(1,2,5,0.94));
+    justify-content: flex-start; gap: 6px;
+  }
+  #gameLogo {
+    margin-top: 6px; font-size: clamp(20px, 5.2vw, 44px); font-weight: bold; letter-spacing: 0.14em;
+    text-align: center; color: var(--green);
+    text-shadow: 0 0 18px rgba(127,223,159,0.45), 0 0 3px rgba(127,223,159,0.9);
+    animation: logoflicker 7s infinite;
+  }
+  @keyframes logoflicker {
+    0%, 91%, 94.5%, 100% { opacity: 1; } 92% { opacity: 0.35; } 93% { opacity: 0.85; } 94% { opacity: 0.4; }
+  }
+  #gameSubtitle { font-size: clamp(11px, 2.4vw, 15px); letter-spacing: 0.35em; opacity: 0.7; }
+  #prizeBanner {
+    margin-top: 4px; padding: 5px 14px; border: 1px solid var(--gold); color: var(--gold);
+    font-size: clamp(10px, 2.3vw, 13px); letter-spacing: 0.12em; border-radius: 3px;
+    background: rgba(60,44,6,0.35); text-align: center; box-shadow: 0 0 14px rgba(255,210,94,0.15);
+  }
+  #nameRow { display: flex; gap: 8px; margin-top: 6px; width: min(430px, 94vw); }
+  #nameInput {
+    flex: 1; min-width: 0; background: rgba(8,20,14,0.9); border: 1px solid var(--green-dim);
+    color: var(--green); font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 3px;
+    letter-spacing: 0.08em; outline: none;
+  }
+  #nameInput:focus { border-color: var(--green); box-shadow: 0 0 10px rgba(127,223,159,0.25); }
+  #nameInput::placeholder { color: rgba(127,223,159,0.35); }
+  #playBtn {
+    background: var(--green); color: #05230f; border: 0; font: inherit; font-weight: bold;
+    font-size: 16px; letter-spacing: 0.18em; padding: 10px 22px; border-radius: 3px; cursor: pointer;
+  }
+  #playBtn:disabled { opacity: 0.35; cursor: default; }
+  #playBtn:not(:disabled):active { transform: translateY(1px); }
+
+  /* ---------- leaderboard ---------- */
+  #boardPanel {
+    margin-top: 8px; width: min(430px, 94vw); flex: 1; min-height: 0;
+    display: flex; flex-direction: column; border: 1px solid var(--green-dim);
+    border-radius: 4px; background: rgba(5,12,9,0.82);
+  }
+  #boardHead {
+    padding: 7px 12px; font-size: 12px; letter-spacing: 0.25em; border-bottom: 1px solid var(--green-dim);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  #boardStatus { font-size: 10px; letter-spacing: 0.05em; opacity: 0.6; text-transform: lowercase; }
+  #boardRows { flex: 1; min-height: 0; overflow-y: auto; touch-action: pan-y; padding: 4px 0; }
+  .brow {
+    display: flex; align-items: baseline; gap: 10px; padding: 5px 12px; font-size: 14px;
+  }
+  .brank { min-width: 26px; text-align: right; opacity: 0.6; flex: none; white-space: nowrap; }
+  .bname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; letter-spacing: 0.06em; }
+  .bscore { font-weight: bold; }
+  .bscore em { font-style: normal; font-size: 10px; opacity: 0.55; }
+  .brow.rank-1 { color: var(--gold); font-size: 16px; text-shadow: 0 0 10px rgba(255,210,94,0.4); }
+  .brow.rank-1 .brank::before { content: '★'; }
+  .brow.rank-2 { color: var(--silver); font-size: 15px; }
+  .brow.rank-3 { color: var(--bronze); font-size: 15px; }
+  .brow.you { background: rgba(127,223,159,0.08); outline: 1px dashed rgba(127,223,159,0.3); }
+  #youRow {
+    border-top: 1px solid var(--green-dim); padding: 6px 12px; display: flex; gap: 10px;
+    align-items: baseline; font-size: 14px; background: rgba(127,223,159,0.05); flex: none;
+  }
+  #titleFoot { font-size: 10px; opacity: 0.45; letter-spacing: 0.1em; padding: 6px 0 2px; text-align: center; }
+
+  /* ---------- HUD ---------- */
+  #hud { position: absolute; inset: 0; pointer-events: none; z-index: 5; font-size: clamp(12px, 2.6vw, 16px); }
+  #hud > div { position: absolute; text-shadow: 0 0 6px rgba(0,0,0,0.9); letter-spacing: 0.1em; }
+  #hudNight { top: max(10px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); opacity: 0.85; }
+  #hudClock { top: max(10px, env(safe-area-inset-top)); right: 14px; font-weight: bold; }
+  #hudScoreWrap { top: max(10px, env(safe-area-inset-top)); left: 14px; }
+  #hudPowerWrap { bottom: max(12px, env(safe-area-inset-bottom)); left: 14px; }
+  #hudPower.low { color: var(--red); animation: blink 1s infinite; }
+  #hudPower.dead { color: var(--red); }
+  @keyframes blink { 50% { opacity: 0.4; } }
+  #hudPips { letter-spacing: 0.12em; opacity: 0.9; }
+  .hudlabel { font-size: 0.62em; opacity: 0.55; letter-spacing: 0.28em; }
+
+  /* ---------- cards ---------- */
+  #card {
+    justify-content: center; text-align: center; gap: 14px; z-index: 20;
+    background: rgba(1, 3, 7, 0.88); padding: 20px;
+  }
+  #cardTitle { font-size: clamp(26px, 7vw, 52px); letter-spacing: 0.18em; font-weight: bold;
+    text-shadow: 0 0 22px rgba(127,223,159,0.5); }
+  #cardSub { font-size: clamp(14px, 3.4vw, 20px); line-height: 1.7; letter-spacing: 0.08em; }
+  #cardSub b { color: var(--gold); }
+  #cardHint { font-size: clamp(11px, 2.6vw, 14px); opacity: 0.6; max-width: 480px; line-height: 1.6; }
+  #cardBtns { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; justify-content: center; }
+  .cbtn {
+    font: inherit; letter-spacing: 0.14em; padding: 11px 20px; border-radius: 3px; cursor: pointer;
+    background: transparent; border: 1px solid var(--green-dim); color: var(--green); font-size: 15px;
+  }
+  .cbtn.primary { background: var(--green); color: #05230f; border-color: var(--green); font-weight: bold; }
+  .cbtn:active { transform: translateY(1px); }
+
+  /* ---------- pause / flash / hints / errors ---------- */
+  #pauseOverlay { z-index: 30; background: rgba(1,3,7,0.9); justify-content: center; cursor: pointer; gap: 10px; }
+  #pauseOverlay h2 { letter-spacing: 0.3em; font-size: 26px; }
+  #pauseOverlay p { opacity: 0.6; font-size: 13px; letter-spacing: 0.1em; }
+  #flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 40; }
+  #dragHint {
+    position: absolute; bottom: 18%; left: 50%; transform: translateX(-50%); z-index: 6;
+    font-size: 13px; letter-spacing: 0.15em; opacity: 0.75; transition: opacity 1s;
+    background: rgba(2,6,10,0.6); padding: 8px 16px; border-radius: 20px; pointer-events: none;
+    text-align: center; line-height: 1.7; width: max-content; max-width: 90vw;
+  }
+  #webglError { z-index: 50; background: var(--bg); justify-content: center; padding: 30px; text-align: center; line-height: 2; }
+  noscript { position: absolute; inset: 0; z-index: 60; background: var(--bg); color: var(--green);
+    display: flex; align-items: center; justify-content: center; }
+</style>
+<!--
+  Engine loader: Three.js r164 from CDN, with an automatic fallback to the
+  vendored copy in vendor/three/ if the CDN is unreachable (offline, blocked,
+  outage). The import map is injected before any module loads, then js/main.js
+  is started. Never a blank screen because a CDN blinked.
+-->
+<script>
+(function () {
+  var CDN = 'https://cdn.jsdelivr.net/npm/three@0.164.1/';
+  var LOCAL = './vendor/three/';
+  function boot(base, minified) {
+    var im = document.createElement('script');
+    im.type = 'importmap';
+    im.textContent = JSON.stringify({
+      imports: {
+        'three': base + 'build/three.module' + (minified ? '.min' : '') + '.js',
+        'three/addons/': base + 'examples/jsm/'
+      }
+    });
+    document.head.appendChild(im);
+    var s = document.createElement('script');
+    s.type = 'module';
+    s.src = 'js/main.js';
+    document.body.appendChild(s);
+  }
+  var ctrl = ('AbortController' in window) ? new AbortController() : null;
+  var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 2500);
+  fetch(CDN + 'package.json', { method: 'HEAD', mode: 'cors', signal: ctrl && ctrl.signal })
+    .then(function (r) {
+      clearTimeout(timer);
+      if (r.ok) boot(CDN, false);
+      else { console.warn('[FNAC] CDN answered ' + r.status + ' — using vendored three.js'); boot(LOCAL, true); }
+    })
+    .catch(function () {
+      clearTimeout(timer);
+      console.warn('[FNAC] CDN unreachable — using vendored three.js');
+      boot(LOCAL, true);
+    });
+})();
+</script>
+</head>
+<body>
+  <noscript>This game requires JavaScript.</noscript>
+  <div id="game"></div>
+
+  <!-- HUD -->
+  <div id="hud" style="display:none">
+    <div id="hudScoreWrap"><span class="hudlabel">SCORE</span><br><span id="hudScore">0</span></div>
+    <div id="hudNight">NIGHT 1</div>
+    <div id="hudClock">12:00 AM</div>
+    <div id="hudPowerWrap">
+      <span class="hudlabel">POWER</span><br>
+      <span id="hudPower">100%</span> <span id="hudPips">▮▯▯▯</span>
+    </div>
+  </div>
+
+  <div id="dragHint" style="display:none">drag to look around<br>tap the switches, the tablet, the world</div>
+
+  <!-- TITLE -->
+  <div id="title" class="overlay">
+    <div id="gameLogo">FIVE NIGHTS AT CHOMPY'S</div>
+    <div id="gameSubtitle">a home at 3 a.m.</div>
+    <div id="prizeBanner"></div>
+    <div id="nameRow">
+      <input id="nameInput" maxlength="16" placeholder="ENTER YOUR NAME" autocomplete="off" spellcheck="false">
+      <button id="playBtn" disabled>PLAY</button>
+    </div>
+    <div id="boardPanel">
+      <div id="boardHead"><span>— TOP TEN —</span><span id="boardStatus"></span></div>
+      <div id="boardRows"></div>
+      <div id="youRow" style="display:none"></div>
+    </div>
+    <div id="titleFoot">drag to look · tap to use · headphones recommended</div>
+  </div>
+
+  <!-- CARDS -->
+  <div id="card" class="overlay" style="display:none">
+    <div id="cardTitle"></div>
+    <div id="cardSub"></div>
+    <div id="cardHint"></div>
+    <div id="cardBtns"></div>
+  </div>
+
+  <!-- PAUSE -->
+  <div id="pauseOverlay" class="overlay" style="display:none">
+    <h2>PAUSED</h2>
+    <p>the house waits. tap to continue.</p>
+  </div>
+
+  <div id="flash"></div>
+
+  <div id="webglError" class="overlay" style="display:none">
+    <div>
+      <b>WebGL is unavailable in this browser.</b><br>
+      The house needs a GPU. Try Chrome, Edge, Firefox or Safari<br>with hardware acceleration enabled.
+    </div>
+  </div>
+
+  <!-- js/main.js is injected by the engine loader in <head> -->
+</body>
+</html>
