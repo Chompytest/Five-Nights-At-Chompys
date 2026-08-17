@@ -180,6 +180,9 @@ export function buildWorld(scene) {
   root.add(tabletProp);
   tabletProp.traverse(o => { o.userData.action = 'tablet'; });
   W.interactables.push(tabletProp); W.deskTablet = tabletProp;
+  const tabPad = buildHitPad(0.52, 0.30, 0.44, 'tablet');
+  tabPad.position.set(0.28, 0.87, -1.62);
+  root.add(tabPad); W.interactables.push(tabPad);
 
   place('tv', -1.55, 0, -1.95, 0.7, buildTV);
   const armchair = place('armchair', -1.42, 0, -1.30, 0.9, buildArmchair);
@@ -214,6 +217,9 @@ export function buildWorld(scene) {
   root.add(doorPanelCtl);
   doorPanelCtl.traverse(o => { o.userData.action = 'door'; });
   W.interactables.push(doorPanelCtl);
+  const doorPad = buildHitPad(0.06, 0.62, 0.52, 'door');
+  doorPad.position.set(-2.10, 1.18, -0.72);
+  root.add(doorPad); W.interactables.push(doorPad);
   W.doorLEDs = doorPanelCtl.userData.leds;
 
   // ---- den WINDOW (right wall) + blinds + curtain ----
@@ -253,6 +259,9 @@ export function buildWorld(scene) {
   root.add(curtCtl);
   curtCtl.traverse(o => { o.userData.action = 'curtain'; });
   W.interactables.push(curtCtl);
+  const curtPad = buildHitPad(0.06, 0.62, 0.52, 'curtain');
+  curtPad.position.set(2.10, 1.18, 0.95);
+  root.add(curtPad); W.interactables.push(curtPad);
   W.curtainLEDs = curtCtl.userData.leds;
 
   // ---- hallway ----
@@ -457,19 +466,56 @@ function buildTabletProp(M) {
   g.userData.led = led;
   return g;
 }
+// An invisible, oversized tap target. Phones need a much bigger hit area than
+// the prop itself — colorWrite:false renders nothing but still raycasts.
+function buildHitPad(w, h, d, action) {
+  const pad = new THREE.Mesh(new THREE.BoxGeometry(w, h, d),
+    new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, transparent: true, opacity: 0 }));
+  pad.renderOrder = -1;
+  pad.userData.action = action;
+  pad.userData.padFor = action;   // lets main.js switch a pad off when it would misfire
+  return pad;
+}
+
 function buildControlPanel(M, ledColor) {
   const g = new THREE.Group();
-  const plate = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.24, 0.035),
-    new THREE.MeshStandardMaterial({ color: 0x22252c, roughness: 0.4 }));
-  g.add(plate);
-  const btn = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 0.02),
-    new THREE.MeshStandardMaterial({ color: 0x3a3f48, roughness: 0.3, emissive: ledColor, emissiveIntensity: 0.25 }));
-  btn.position.z = 0.025; btn.position.y = -0.03; g.add(btn);
+  const plateMat = new THREE.MeshStandardMaterial({ color: 0x22252c, roughness: 0.4 });
+  // wall plate built as a FRAME around an opening, so the lever has somewhere
+  // to swing into instead of clipping through a solid box
+  const bar = (w, h, x, y) => {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.022), plateMat);
+    b.position.set(x, y, 0); g.add(b); return b;
+  };
+  bar(0.16, 0.090, 0, 0.075);      // above the opening (carries the lamps)
+  bar(0.16, 0.025, 0, -0.1075);    // below
+  bar(0.042, 0.125, -0.059, -0.032); // left
+  bar(0.042, 0.125, 0.059, -0.032);  // right
+  // dark cavity behind the opening
+  const cavity = new THREE.Mesh(new THREE.BoxGeometry(0.076, 0.125, 0.008),
+    new THREE.MeshStandardMaterial({ color: 0x07090c, roughness: 1 }));
+  cavity.position.set(0, -0.032, -0.030); g.add(cavity);
+  [[0, 0.1], [0, -0.1]].forEach(([x, y]) => {
+    const screw = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.004, 8), M.metal);
+    screw.rotation.x = Math.PI / 2; screw.position.set(x, y, 0.013); g.add(screw);
+  });
+  // THE TOGGLE: a lever on a pivot at the middle of the opening. Sticks out
+  // and up when released; flips down into the cavity when the device is on.
+  const pivot = new THREE.Group();
+  pivot.position.set(0, -0.032, 0.012);
+  g.add(pivot);
+  const lever = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.055, 0.022),
+    new THREE.MeshStandardMaterial({
+      color: 0xd0d4da, roughness: 0.32, metalness: 0.15,
+      emissive: ledColor, emissiveIntensity: 0.10,
+    }));
+  lever.position.set(0, 0.022, 0.005); pivot.add(lever);
+  pivot.rotation.x = 0.45;                      // released
+  // status lamps on the plate above the switch
   const ledOn = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.018, 0.012), new THREE.MeshBasicMaterial({ color: 0xff4444 }));
-  ledOn.position.set(-0.03, 0.08, 0.026); g.add(ledOn);
+  ledOn.position.set(-0.03, 0.08, 0.017); g.add(ledOn);
   const ledOff = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.018, 0.012), new THREE.MeshBasicMaterial({ color: 0x39ff6a }));
-  ledOff.position.set(0.035, 0.08, 0.026); g.add(ledOff);
-  g.userData.leds = { on: ledOn, off: ledOff, btn };
+  ledOff.position.set(0.035, 0.08, 0.017); g.add(ledOff);
+  g.userData.leds = { on: ledOn, off: ledOff, btn: lever, lever: pivot };
   return g;
 }
 function buildCouch(M) {
@@ -648,6 +694,16 @@ export function updateWorld(W, S, dt, t, audio) {
   // control panel LEDs
   if (W.doorLEDs) { W.doorLEDs.on.visible = S.doorClosed && !S.blackout; W.doorLEDs.off.visible = !S.doorClosed && !S.blackout; }
   if (W.curtainLEDs) { W.curtainLEDs.on.visible = S.curtainClosed && !S.blackout; W.curtainLEDs.off.visible = !S.curtainClosed && !S.blackout; }
+  // toggle levers: snap down when engaged, spring back up when released
+  const flip = (ctl, engaged) => {
+    if (!ctl || !ctl.lever) return;
+    const target = engaged ? -0.45 : 0.45;
+    const r = ctl.lever.rotation;
+    r.x += (target - r.x) * Math.min(1, dt * 22);
+    if (Math.abs(target - r.x) < 0.004) r.x = target;
+  };
+  flip(W.doorLEDs, S.doorClosed);
+  flip(W.curtainLEDs, S.curtainClosed);
   // tablet LED pulse
   const led = W.deskTablet?.userData?.led;
   if (led) { led.visible = !S.blackout; led.material.color.setHSL(0.38, 1, 0.4 + Math.sin(t * 4) * 0.25); }
