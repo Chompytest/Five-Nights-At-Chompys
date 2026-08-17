@@ -148,11 +148,13 @@ S.onKill = (key) => {
 // ---------------------------------------------------------------------------
 let yaw = 0, pitch = 0;
 let dragging = false, dragMoved = 0, downAt = 0, lastX = 0, lastY = 0, downX = 0, downY = 0;
+let touchPointer = false;
 const raycaster = new THREE.Raycaster();
 const canvas = renderer.domElement;
 
 canvas.addEventListener('pointerdown', (e) => {
   dragging = true; dragMoved = 0; downAt = performance.now();
+  touchPointer = (e.pointerType === 'touch' || e.pointerType === 'pen');
   lastX = downX = e.clientX; lastY = downY = e.clientY;
   canvas.setPointerCapture(e.pointerId);
 });
@@ -168,8 +170,11 @@ canvas.addEventListener('pointermove', (e) => {
 });
 canvas.addEventListener('pointerup', (e) => {
   dragging = false;
-  const quick = performance.now() - downAt < 400;
-  if (dragMoved < 10 && quick) tapInteract(e.clientX, e.clientY);
+  // a finger smears more than a mouse: touch gets a looser tap window
+  const slop = touchPointer ? 26 : 10;
+  const window_ms = touchPointer ? 550 : 400;
+  const quick = performance.now() - downAt < window_ms;
+  if (dragMoved < slop && quick) tapInteract(e.clientX, e.clientY);
 });
 
 function tapInteract(cx, cy) {
@@ -178,7 +183,9 @@ function tapInteract(cx, cy) {
     (cx / window.innerWidth) * 2 - 1,
     -(cy / window.innerHeight) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
-  const targets = [...world.interactables];
+  // the desk-tablet pad is disabled while the tablet is already raised, so its
+  // bigger footprint can't lower the tablet by accident
+  const targets = world.interactables.filter(o => !(S.tabletUp && o.userData.padFor === 'tablet'));
   if (tablet.rig.visible) targets.push(tablet.rig);
   const hits = raycaster.intersectObjects(targets, true);
   for (const h of hits) {
@@ -197,8 +204,14 @@ function tapInteract(cx, cy) {
 
 // keyboard conveniences (the 3D controls remain the canonical interface)
 window.addEventListener('keydown', (e) => {
-  if (S.state !== 'playing') return;
   const k = e.key.toLowerCase();
+  // while HOW TO PLAY is up it swallows the game keys — only H / Esc close it
+  if (ui.helpOpen()) {
+    if (k === 'h' || k === 'escape') { e.preventDefault(); ui.closeHelp(); }
+    return;
+  }
+  if (S.state !== 'playing') return;
+  if (k === 'h') { e.preventDefault(); return ui.openHelp({ label: 'RESUME' }); }
   if (k === ' ' || k === 'tab') { e.preventDefault(); S.toggleTablet(); }
   else if (k === 'd') S.toggleDoor();
   else if (k === 'c') S.toggleCurtain();
