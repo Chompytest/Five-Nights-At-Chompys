@@ -37,6 +37,8 @@ export function createUI() {
     hudPower: $('hudPower'), hudPips: $('hudPips'), hudScore: $('hudScore'),
     pause: $('pauseOverlay'), flash: $('flash'), hint: $('dragHint'),
     subtitle: $('gameSubtitle'), logo: $('gameLogo'),
+    help: $('helpOverlay'), helpBtn: $('helpBtn'), helpFab: $('helpFab'),
+    helpClose: $('helpClose'), helpBody: $('helpBody'),
   };
   el.logo.textContent = COPY.TITLE;
   el.subtitle.textContent = COPY.SUBTITLE;
@@ -200,6 +202,14 @@ export function createUI() {
   el.name.addEventListener('input', syncPlay);
   syncPlay();
 
+  function beginRun() {
+    el.title.style.display = 'none';
+    el.hud.style.display = '';
+    clearInterval(LB.refreshTimer);
+    S.startRun({ night: 1 });  // startRun resets the submitted flag
+    showDragHintOnce();
+  }
+
   el.play.addEventListener('click', () => {
     if (!nameOK()) return;
     const name = sanitizeName(el.name.value);
@@ -207,12 +217,40 @@ export function createUI() {
     LS.set('fnac_name', name);
     S.playerName = name;
     initAudio();               // user gesture — unlock audio
-    el.title.style.display = 'none';
-    el.hud.style.display = '';
-    clearInterval(LB.refreshTimer);
-    S.startRun({ night: 1 });  // startRun resets the submitted flag
-    showDragHintOnce();
+    // first-time players read the rules before Night 1; after that PLAY is instant
+    if (!LS.get('fnac_helpseen')) openHelp({ label: 'START NIGHT 1', then: beginRun });
+    else beginRun();
   });
+
+  // --------------------------------------------------------------------------
+  // how to play — reachable from the title AND mid-night (pauses, then resumes)
+  // --------------------------------------------------------------------------
+  let helpPausedGame = false;
+  let helpThen = null;
+
+  function openHelp({ label = 'GOT IT', then = null } = {}) {
+    if (el.help.style.display !== 'none') return;
+    helpThen = then;
+    helpPausedGame = !!(S && S.state === 'playing' && !S.paused);
+    if (helpPausedGame) { S.paused = true; suspendAudio(); }
+    el.helpClose.textContent = label;
+    el.help.style.display = '';
+    el.helpBody.scrollTop = 0;
+  }
+  function closeHelp() {
+    if (el.help.style.display === 'none') return;
+    el.help.style.display = 'none';
+    LS.set('fnac_helpseen', '1');
+    if (helpPausedGame) { S.paused = false; resumeAudio(); helpPausedGame = false; }
+    const then = helpThen; helpThen = null;
+    if (then) then();
+  }
+  el.helpBtn.addEventListener('click', () => openHelp());
+  el.helpFab.addEventListener('click', () => openHelp({ label: 'RESUME' }));
+  el.helpClose.addEventListener('click', closeHelp);
+  ui.openHelp = openHelp;
+  ui.closeHelp = closeHelp;
+  ui.helpOpen = () => el.help.style.display !== 'none';
 
   // --------------------------------------------------------------------------
   // cards
