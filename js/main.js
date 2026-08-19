@@ -134,6 +134,27 @@ let jumpscare = null, deathHold = 0;
 const scareLight = new THREE.PointLight(0xfff2e0, 0, 3.0, 2);
 scareLight.position.set(0, 0.15, -0.25);
 camera.add(scareLight);
+// ---- Boo's pet check: put him in the den facing the chair ----
+S.onPetStart = () => {
+  const b = chars.boo;
+  b.group.visible = true;
+  b.group.position.set(ROOMS.den.anchor.x - 0.35, 0, ROOMS.den.anchor.z + 0.15);
+  b.group.lookAt(0, 0.8, 0.9);
+  b.room = 'den';
+  SFX.giggle(b.group.position, 1.0);
+};
+S.onPetEnd = (petted) => {
+  const b = chars.boo;
+  if (petted) {
+    SFX.giggle(b.group.position, 0.75);
+    b.group.visible = false; b.room = null;
+  } else {
+    // he steps aside — whatever is behind him does the rest
+    b.group.visible = false; b.room = null;
+    SFX.staticPop(ROOMS.den.anchor, 0.5, 0.8);
+  }
+};
+
 S.onKill = (key) => {
   SFX.scream();
   scareLight.intensity = 11;
@@ -170,6 +191,7 @@ canvas.addEventListener('pointermove', (e) => {
 });
 canvas.addEventListener('pointerup', (e) => {
   dragging = false;
+  if (S.petting) { S.doPet(); return; }   // panic-tap anywhere: he still counts it
   // a finger smears more than a mouse: touch gets a looser tap window
   const slop = touchPointer ? 26 : 10;
   const window_ms = touchPointer ? 550 : 400;
@@ -211,6 +233,10 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (S.state !== 'playing') return;
+  if (S.petting) {
+    if (k !== 'p') { e.preventDefault(); S.doPet(); }
+    return;
+  }
   if (k === 'h') { e.preventDefault(); return ui.openHelp({ label: 'RESUME' }); }
   if (k === ' ' || k === 'tab') { e.preventDefault(); S.toggleTablet(); }
   else if (k === 'd') S.toggleDoor();
