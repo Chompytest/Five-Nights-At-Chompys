@@ -20,7 +20,6 @@ import * as SFX from './audio.js';
 
 const CHOMPY_PATH = ['garage', 'kitchen', 'living', 'hallway', 'doorstep'];
 const COB_PATH = ['kitchen', 'living', 'hallway', 'doorstep'];
-const BOO_STAGES = ['byFar', 'byNear', 'window'];
 
 export function createAI(chars, S, hooks) {
   // hooks: { kill(key), watchedCamId() -> cam id or null, lookingAtGolden() -> bool }
@@ -31,7 +30,7 @@ export function createAI(chars, S, hooks) {
     A.grace = TUNING.GRACE_PERIOD * (night === 1 ? 2 : 1);
     A.chompy = { idx: 0, timer: band(A.cfg.chompy.band), atDoor: false, entry: 0 };
     A.cob = { idx: 0, unwatched: 0, threshold: band(A.cfg.cob.band), atDoor: false, entry: 0, frozen: false };
-    A.boo = { stage: -1, neglect: 0, threshold: A.cfg.boo.active === false ? Infinity : band(A.cfg.boo.neglect), grace: 0, repel: 0, scratchT: 0 };
+    A.boo = { timer: A.cfg.boo.active === false ? Infinity : band(A.cfg.boo.band), visits: 0 };
     A.golden = { present: false, roll: TUNING.GOLDEN_ROLL_EVERY, stay: 0, stare: 0 };
     placeInRoom(chars.chompy, 'garage', ROOMS.kitchen.anchor);
     placeInRoom(chars.cob, 'kitchen', ROOMS.living.anchor);
@@ -106,43 +105,18 @@ export function createAI(chars, S, hooks) {
     }
   }
 
-  // ---- BOO ----------------------------------------------------------------
+  // ---- BOO ------------------------------------------------------------------
+  // Boo no longer stalks the yard. He wanders in, stops the whole night dead,
+  // and waits to be petted. Refuse him and MAYU comes out of the dark instead.
   function tickBoo(dt) {
     const b = A.boo, cfg = A.cfg.boo;
     if (cfg.active === false) return;
-    const checked = hooks.watchedCamId() === 'backyard';
-    if (b.stage < 2) {
-      if (checked) b.neglect = 0;         // checking her resets the clock
-      else b.neglect += dt;
-      if (b.neglect >= b.threshold) {
-        b.stage = Math.min(b.stage + 1, 2);
-        b.neglect = 0; b.threshold = band(cfg.neglect);
-        const stageRoom = BOO_STAGES[b.stage];
-        placeInRoom(chars.boo, stageRoom, ROOMS.window.anchor);
-        SFX.giggle(ROOMS[stageRoom].anchor, 0.7 + b.stage * 0.3);
-        if (b.stage === 2) {
-          // AT THE WINDOW — face the glass
-          chars.boo.group.lookAt(2.2, 1.1, 0);
-          b.grace = band(cfg.grace); b.repel = 0; b.scratchT = 0.6;
-        }
-      }
-    } else {
-      // at the window: doorbell cam can't see her anymore
-      b.scratchT -= dt;
-      if (b.scratchT <= 0) { SFX.windowScratch(ROOMS.window.anchor); b.scratchT = rand(1.8, 3.2); }
-      if (S.curtainClosed) {
-        b.repel += dt;
-        if (b.repel >= 3.5) {             // curtain held: she loses interest
-          SFX.glassTap(ROOMS.window.anchor);
-          SFX.giggle(ROOMS.byFar.anchor, 0.5);
-          b.stage = -1; b.neglect = 0; b.threshold = band(cfg.neglect);
-          hideChar(chars.boo);
-        }
-      } else {
-        b.repel = 0;
-        b.grace -= dt;
-        if (b.grace <= 0) hooks.kill('boo');
-      }
+    if (S.petting) return;                       // already asking
+    b.timer -= dt;
+    if (b.timer <= 0) {
+      b.timer = band(cfg.band);
+      b.visits += 1;
+      S.startPet(cfg.pet);
     }
   }
 
@@ -192,8 +166,7 @@ export function createAI(chars, S, hooks) {
     let t = 0;
     t = Math.max(t, [0.06, 0.16, 0.3, 0.55, 0.85][A.chompy.idx] || 0);
     t = Math.max(t, (A.cob.atDoor ? 0.8 : [0.05, 0.14, 0.45][A.cob.idx] || 0));
-    if (A.boo.stage === 1) t = Math.max(t, 0.35);
-    if (A.boo.stage === 2) t = Math.max(t, 0.9);
+    if (S.petting) t = Math.max(t, 0.95);
     if (A.golden.present) t = Math.max(t, 0.92);
     if (S.blackout) t = 1;
     return t;
