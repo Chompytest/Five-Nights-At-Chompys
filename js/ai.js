@@ -30,7 +30,7 @@ export function createAI(chars, S, hooks) {
     A.grace = TUNING.GRACE_PERIOD * (night === 1 ? 2 : 1);
     A.chompy = { idx: 0, timer: band(A.cfg.chompy.band), atDoor: false, entry: 0 };
     A.cob = { idx: 0, unwatched: 0, threshold: band(A.cfg.cob.band), atDoor: false, entry: 0, frozen: false };
-    A.boo = { timer: A.cfg.boo.active === false ? Infinity : band(A.cfg.boo.band), visits: 0 };
+    A.boo = { timer: booNext(A.cfg.boo, true), visits: 0 };
     A.golden = { present: false, roll: TUNING.GOLDEN_ROLL_EVERY, stay: 0, stare: 0 };
     placeInRoom(chars.chompy, 'garage', ROOMS.kitchen.anchor);
     placeInRoom(chars.cob, 'kitchen', ROOMS.living.anchor);
@@ -108,13 +108,22 @@ export function createAI(chars, S, hooks) {
   // ---- BOO ------------------------------------------------------------------
   // Boo no longer stalks the yard. He wanders in, stops the whole night dead,
   // and waits to be petted. Refuse him and MAYU comes out of the dark instead.
+  // when Boo turns up next: cfg.first for the opening visit, then cfg.band —
+  // unless cfg.once, in which case he came, he was petted, he's done.
+  function booNext(cfg, firstTime) {
+    if (cfg.active === false) return Infinity;
+    if (firstTime && cfg.first != null) return cfg.first;
+    if (!firstTime && cfg.once) return Infinity;
+    return cfg.band ? band(cfg.band) : Infinity;
+  }
+
   function tickBoo(dt) {
     const b = A.boo, cfg = A.cfg.boo;
     if (cfg.active === false) return;
     if (S.petting) return;                       // already asking
     b.timer -= dt;
     if (b.timer <= 0) {
-      b.timer = band(cfg.band);
+      b.timer = booNext(cfg, false);
       b.visits += 1;
       S.startPet(cfg.pet);
     }
