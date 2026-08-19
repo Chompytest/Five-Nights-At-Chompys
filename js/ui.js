@@ -39,6 +39,7 @@ export function createUI() {
     subtitle: $('gameSubtitle'), logo: $('gameLogo'),
     help: $('helpOverlay'), helpBtn: $('helpBtn'), helpFab: $('helpFab'),
     helpClose: $('helpClose'), helpBody: $('helpBody'),
+    pet: $('petOverlay'), petBtn: $('petBtn'), petBar: $('petBar'), petTitle: $('petTitle'),
   };
   el.logo.textContent = COPY.TITLE;
   el.subtitle.textContent = COPY.SUBTITLE;
@@ -248,6 +249,19 @@ export function createUI() {
   el.helpBtn.addEventListener('click', () => openHelp());
   el.helpFab.addEventListener('click', () => openHelp({ label: 'RESUME' }));
   el.helpClose.addEventListener('click', closeHelp);
+  // ---- Boo's pet check ----
+  ui.showPetPrompt = (seconds) => {
+    el.pet.style.display = 'flex';
+    el.petBar.style.width = '100%';
+    el.petBar.classList.remove('low');
+  };
+  ui.updatePetPrompt = (frac) => {
+    el.petBar.style.width = (frac * 100).toFixed(1) + '%';
+    el.petBar.classList.toggle('low', frac < 0.35);
+  };
+  ui.hidePetPrompt = () => { el.pet.style.display = 'none'; };
+  el.petBtn.addEventListener('click', (e) => { e.stopPropagation(); S.doPet(); });
+
   ui.openHelp = openHelp;
   ui.closeHelp = closeHelp;
   ui.helpOpen = () => el.help.style.display !== 'none';
