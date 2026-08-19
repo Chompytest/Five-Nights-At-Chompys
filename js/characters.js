@@ -144,6 +144,7 @@ const FALLBACK_BUILDERS = {
   cob: () => buildCob(0xd8c24a, false),
   boo: buildBoo,
   goldenCob: buildGoldenCob,
+  mayu: () => buildCob(0x8a2530, false),   // placeholder until the .glb loads
 };
 
 // ---------------------------------------------------------------------------
@@ -151,7 +152,7 @@ const FALLBACK_BUILDERS = {
 // ---------------------------------------------------------------------------
 export function buildCharacters(scene) {
   const chars = {};
-  for (const key of ['chompy', 'cob', 'boo', 'goldenCob']) {
+  for (const key of ['chompy', 'cob', 'boo', 'goldenCob', 'mayu']) {
     const def = ASSETS.models[key];
     const group = new THREE.Group();
     const fb = FALLBACK_BUILDERS[key]();
