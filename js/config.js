@@ -33,6 +33,9 @@ export const ASSETS = {
     cob:       { url: 'models/cob.glb',       fallback: 'cylinder', height: 2.10, yaw: 0 },
     boo:       { url: 'models/boo.glb',       fallback: 'sphere',   height: 1.40, yaw: 0 },
     goldenCob: { url: 'models/goldencob.glb', fallback: 'cylinder', height: 1.30, yaw: 0, tint: 0xc9a53a },
+    // MAYU — only ever seen when a pet check is failed. yaw: rotate her if she
+    // faces away from the chair (try 3.14159 for a half turn).
+    mayu:      { url: 'models/mayu.glb',      fallback: 'cylinder', height: 1.70, yaw: 0 },
     // ---- furniture / props
     couch:     { url: 'models/couch.glb',     fallback: 'box', height: 0.85 },
     armchair:  { url: 'models/armchair.glb',  fallback: 'box', height: 0.90 },
@@ -100,8 +103,8 @@ export const TUNING = {
 // PER-NIGHT AI TABLES. Bands in seconds. Night index 1..5.
 //   chompy.band   — time between room advances
 //   cob.band      — UNWATCHED time needed to advance (watching her room pauses it)
-//   boo.neglect   — time since last doorbell-cam check before she advances
-//   boo.grace     — time she waits at the window before striking/leaving
+//   boo.band      — [min,max] real seconds between Boo's visits
+//   boo.pet       — seconds you get to pet him before MAYU takes you
 //   golden.p      — probability per roll (every GOLDEN_ROLL_EVERY sec) to appear
 //   golden.stay   — how long she stays; if not dispelled by then, you die
 //   entryWait     — pause at the doorstep before an entry attempt
@@ -121,7 +124,7 @@ export const NIGHTS = {
     hint: 'Something pale is in the backyard. The doorbell cam sees it. If you stop checking, it gets closer.',
     chompy: { band: [24, 40], entryWait: [3.0, 5.0] },
     cob:    { band: [20, 33], entryWait: [2.8, 4.5] },
-    boo:    { neglect: [26, 40], grace: [4.5, 7.0] },
+    boo:    { band: [95, 155], pet: 7.0 },
     golden: { active: false },
   },
   3: {
@@ -129,7 +132,7 @@ export const NIGHTS = {
     hint: 'If she is suddenly in the room with you: do not look at her. Raise the tablet. It hates the tablet.',
     chompy: { band: [18, 32], entryWait: [2.6, 4.2] },
     cob:    { band: [15, 26], entryWait: [2.5, 4.0] },
-    boo:    { neglect: [20, 32], grace: [4.0, 6.0] },
+    boo:    { band: [80, 135], pet: 6.0 },
     golden: { p: 0.05, stay: [10, 14] },
   },
   4: {
@@ -137,7 +140,7 @@ export const NIGHTS = {
     hint: 'They know the routine now. Vary yours.',
     chompy: { band: [13, 24], entryWait: [2.2, 3.6] },
     cob:    { band: [11, 20], entryWait: [2.2, 3.5] },
-    boo:    { neglect: [15, 25], grace: [3.5, 5.5] },
+    boo:    { band: [68, 115], pet: 5.0 },
     golden: { p: 0.09, stay: [9, 13] },
   },
   5: {
@@ -145,7 +148,7 @@ export const NIGHTS = {
     hint: 'Battery, door, curtain, tablet. Spend all four perfectly. See you at six.',
     chompy: { band: [10, 19], entryWait: [2.0, 3.2] },
     cob:    { band: [8, 16], entryWait: [2.0, 3.2] },
-    boo:    { neglect: [11, 19], grace: [3.0, 5.0] },
+    boo:    { band: [58, 100], pet: 4.0 },
     golden: { p: 0.13, stay: [8, 12] },
   },
 };
