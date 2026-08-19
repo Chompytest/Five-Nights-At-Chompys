@@ -103,6 +103,9 @@ export const TUNING = {
 // PER-NIGHT AI TABLES. Bands in seconds. Night index 1..5.
 //   chompy.band   — time between room advances
 //   cob.band      — UNWATCHED time needed to advance (watching her room pauses it)
+//   boo.first     — seconds into the night for his FIRST visit (optional; if
+//                   absent the first visit is drawn from boo.band like the rest)
+//   boo.once      — true = he only comes the one time this night
 //   boo.band      — [min,max] real seconds between Boo's visits
 //   boo.pet       — seconds you get to pet him before MAYU takes you
 //   golden.p      — probability per roll (every GOLDEN_ROLL_EVERY sec) to appear
@@ -116,7 +119,7 @@ export const NIGHTS = {
     hint: 'The hallway door has a switch. If you hear footsteps get close — use it. Watch the battery.',
     chompy: { band: [34, 52], entryWait: [3.5, 5.5] },
     cob:    { band: [30, 46], entryWait: [3.2, 5.0] },
-    boo:    { active: false },
+    boo:    { first: 40, once: true, pet: 9.0 },
     golden: { active: false },
   },
   2: {
